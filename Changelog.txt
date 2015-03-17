@@ -1,0 +1,25 @@
+/**
+*   @file   	Changelog.txt
+*   @author 	Benjamin Marty (bmarty@kochag.ch)
+*   @date   	09.03.2014
+*   @brief  	Changelog File
+*   @bug    	No known bugs.
+*	@version	1.1.0
+*
+*/
+
+V1.0.0
+-
+
+V1.0.1 - 24.02.2015
+-Include von Header File in Header File entfernt
+-Neue Funktion taste_1, taste_2, taste_3 und potentiometer. Tastenfunktionen geben 0 bzw. 1 zurück, potentiometer einen Wert zwischen 0-1023
+
+
+V1.1.0 - 09.03.2015
+!-Es darf keine Instanz mehr im Sketch gebildet werden, wird nun direkt in der Library erledigt!
+
+-Funktion taste_1...taste_3 entfernt.
+-Neue Funktion matrix.read_io() um die matrix.taste_1...matrix.taste_3 variablen zu aktualisieren, gleichzeitig wird auch matrix.potentiometer_0 aktualisiert.
+-Neue Funktion matrix.write_array um Array direkt auf Matrix ausgeben zu können
+-Examples angepasst Library V1.1

@@ -1,0 +1,7 @@
+name=Matrix_RKAG
+version=1.1
+author=Benjamin Marty <bmarty@kochag.ch>
+maintainer=Benjamin Marty <bmarty@kochag.ch>
+sentence=This is a complete Library to use the Matrix Project.
+url=www.kochag.ch
+architectures=avr
