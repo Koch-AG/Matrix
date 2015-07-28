@@ -1,45 +1,45 @@
 /**
-*   @file   	Matrix_RKAG.h
-*   @author 	Benjamin Marty (bmarty@kochag.ch)
-*   @date   	09.03.2014
-*   @brief  	Header File of Matrix_RKAG Library
-*   @bug    	No known bugs.
-*	@version	1.1.0
-*
+* \file     Matrix_RKAG.cpp
+* \brief    RKAG Matrix library source file
+* \author   Benjamin Marty <bmarty@kochag.ch>
+* \author   Sven Gehring <sgehring@kochag.ch>
+* \version  1.2.0
 */
 
 
-// ensure this library description is only included once
-#ifndef Matrix_RKAG_h
-#define Matrix_RKAG_h
+#ifndef MATRIX_RKAG_H
+#define MATRIX_RKAG_H
 
 #include "Arduino.h"
 
 #include <SPI.h>
 #include <Wire.h>
 
-// library interface description
-class matrix_class
-{
-  // user-accessible "public" interface
+
+/** \brief RKAG Matrix library class
+* This class grants access to all major matrix functionality to
+* control the RKAG edu project
+*/
+class rkag_matrix {
   public:
-	matrix_class();
+	rkag_matrix ();
 
-	void init();
-	int read_io();
+	void init (void);
+	int read_io (void);
 
-    void write(char byte1, char byte2, char byte3, char byte4, char byte5, char byte6, char byte7, char byte8);
-    void write_array(char matrix[]);
-    void clear();
-	void sample(int numb);
-	void font_write(int numb);
+    void clear (void);
+    void sample (int pattern);
+    void write_char (char character);
+    void write_array (char matrix[]);
+    void write (char byte1, char byte2, char byte3, char byte4,
+                char byte5, char byte6, char byte7, char byte8);
 
-	void pcf_write(int data);
-	int pcf_read();
+	void pcf_write (int data);
+	int pcf_read (void);
 	
-	int taste_1;
-	int taste_2;
-	int taste_3;
+	int button_1;
+	int button_2;
+	int button_3;
 
 	int potentiometer_0;
 
@@ -47,12 +47,12 @@ class matrix_class
    	unsigned long microseconds_now; 	
   	unsigned long microseconds_saved;
 
-	int counter_taste_1;
-	int counter_taste_2;
-	int counter_taste_3; 
+	int counter_button_1;
+	int counter_button_2;
+	int counter_button_3; 
 };
 
-extern matrix_class matrix;
+extern rkag_matrix matrix;
 
-#endif
+#endif                                                                           /* MATRIX_RKAG_H */
 

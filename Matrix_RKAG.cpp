@@ -1,276 +1,256 @@
 /**
-*   @file   	Matrix_RKAG.cpp
-*   @author 	Benjamin Marty (bmarty@kochag.ch)
-*   @date   	09.03.2014
-*   @brief  	cpp File of Matrix_RKAG Library
-*   @bug    	No known bugs.
-*	@version	1.1.0
-*
+* \file     Matrix_RKAG.cpp
+* \brief    RKAG Matrix library source file
+* \author   Benjamin Marty <bmarty@kochag.ch>
+* \author   Sven Gehring <sgehring@kochag.ch>
+* \version  1.2.0
 */
 
 
-// include this library's description file
-#include "Matrix_RKAG.h"
-
 #include <SPI.h>
 #include <Wire.h>
-
 #include <TimerOne.h>
 
-#include "font.h"
+#include "Matrix_RKAG.h"
 #include "acc_register.h"
+#include "font.h"
 
-#define RCK A3			//RCK Pin von SR
-#define SRCLR A2		//''
+#define RCK A3                                                    /* define RCK as Arduino Pin A3 */
+#define SRCLR A2                                                /* define SRCLR as Arduino Pin A2 */
+#define PCF_ADRESS 0x38                                   /* define port expander address as 0x38 */
+#define PCF_MASKBTN 1       /* indicator if button values (b0 - b2 should be masked in pcf write) */
+#define BTN_THRESHOLD 2                    /* button counter threshold for detecting button press */
 
-#define PCF_ADRESS 0x38	//Portexpander Adresse
 
 
-//Zwischenspeicher (Array) für die nächste Übertragung auf die Matrix
-int data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-//Pin RCK, SRCLR, SS konfiguieren sobald Instanz gebildet wird
-matrix_class::matrix_class()
-{
-	pinMode(RCK, OUTPUT);	//Register Clock high Pegel sensitive
-	pinMode(SRCLR, OUTPUT);	//SRClear low Pegel sensitive
-	pinMode(SS, OUTPUT);
+static int data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};      /* matrix spi buffer */
 
-	digitalWrite(RCK, 0);
-	digitalWrite(SRCLR, 1);
-	digitalWrite(SS, 1);
+
+
+
+/** \brief Matrix class constructor
+* Construct a new instance of the matrix class, initialize pins RCK, SRCLR & SS
+*
+*/
+rkag_matrix::rkag_matrix() {
+    pinMode(RCK, OUTPUT);                                          /* register clock, high active */
+    pinMode(SRCLR, OUTPUT);                                                /* SRClear, low active */
+    pinMode(SS, OUTPUT);
+
+    digitalWrite(RCK, 0);
+    digitalWrite(SRCLR, 1);
+    digitalWrite(SS, 1);
 }
 
-//Schlaufe die auf den Hardware Timer angebunden ist
-void matrix_timer()
-{
-	static int zaehler;
-	
-	//SR Speicher Reset
-	digitalWrite(SRCLR, 1);
-	digitalWrite(SRCLR, 0);
-	digitalWrite(SRCLR, 1);
 
-	//Zeile 
-	SPI.transfer(0x80 >> zaehler);
+/** \brief Matrix loop that is bound to the hardware timer
+* This method will be bound to the hardware timer and called in every iteration
+*/
+void matrix_timer() {
+    static int counter;
+    
+    digitalWrite(SRCLR, 1);                                                   /* SR storage reset */
+    digitalWrite(SRCLR, 0);
+    digitalWrite(SRCLR, 1);
+ 
+    SPI.transfer(0x80 >> counter);                                         /* transfer single row */
+    SPI.transfer(data[counter]);                                         /* transfer counter data */
 
-	//Daten aus Matrix Array rüberschiben
-	SPI.transfer(data[zaehler]);
+    digitalWrite(RCK, 0);                         /* generate puls, set register to output buffer */
+    digitalWrite(RCK, 1);
+    digitalWrite(RCK, 0);
 
-	//Puls generieren -> Schieberegister auf Output Buffer schalten
-	digitalWrite(RCK, 0);
-	digitalWrite(RCK, 1);
-	digitalWrite(RCK, 0);
-
-	if (zaehler == 7)
-	{
-		//Zaehler auf 0 stellen um erneut wieder 8 Bit zu uebetragen
-		zaehler = 0;
-	}
-	else
-	{
-		//Zaehler hochzaehlen da noch nicht 8 Bit erreicht
-		zaehler++;
-	}
+    if (counter == 7) counter = 0;                        /* reset counter to write another 8 bit */
+    else counter++;                                        /* increment counter to calcuate 8 bit */
 }
 
-//Initalisierung (Timer konfiguieren, SPI initalisieren)
-void matrix_class::init()
-{
-	Wire.begin();							//I2C Interface starten und Bus als Master betreten
-	//pcf_write(0x00);						//PCF reseten
 
-	Timer1.initialize(800);					//1000000 = 1 Sekunde - 80000 = 8ms = ca. 15.6Hz Updaterate des kompletten Bild
-	Timer1.attachInterrupt(matrix_timer);	//Funktion matrix_timer bei jedem Timerueberlauf ausführen
+/** \brief Initialize matrix class instance
+* This will configure the instance bound timer as well as the
+* internal SPI connection used to transfer the data.
+*/
+void rkag_matrix::init() {
+    Wire.begin();                                                /* initialize i2c bus a smaster  */
 
-	SPI.begin();							//SPI Starten
-	SPI.setClockDivider(SPI_CLOCK_DIV128);	//16Mhz/128 = 125kHz
-	SPI.setBitOrder(LSBFIRST);				//MSB zuerst senden
+    Timer1.initialize(800);                    /* initialize timer with 8ms (~15.6Hz update rate) */
+    Timer1.attachInterrupt(matrix_timer);         /* bind method 'matrix_timer' to hardware timer */
 
-}
-
-//Updateroutine für I/O Hardware an der Matrix
-int matrix_class::read_io()
-{
-	char counter_value = 2;
-	char pcf_state;
-
-	microseconds_now = micros();			//Aktuellen us Wert speichern
-	pcf_state = pcf_read();					//Aktuellen Wert aus PCF Portexpander speichern
-	potentiometer_0 = 1023-(analogRead(A0));		//Potentiometer lesen und in potentiometer_0 schreiben
-
-	//Werte der drei Tasten reseten
-	taste_1 = 0;
-	taste_2 = 0;
-	taste_3 = 0;
-
-	//Prüfen ob seit dem letzten mal bereits 5ms vergangen sind.
-	if((microseconds_now - microseconds_saved) > 5000)
-	{
-		//Prüfen ob Taste gedrückt, wenn ja Zähler hochzählen, wenn nicht Zähler auf 0
-		if(pcf_state & 0x01)
-		{
-			counter_taste_1++;
-		}
-
-		if(pcf_state & 0x02)
-		{
-			counter_taste_2++;
-		}
-
-		if(pcf_state & 0x04)
-		{
-			counter_taste_3++;
-		}	
-
-		//Aktuelle micros speichern für nächsten Durchgang
-		microseconds_saved = micros();
-	}
-
-	//Wenn der Counter höher als counter_value ist & das Bit des entsprechenden Taster Low ist dann taste gedrückt worden
-	if(counter_taste_1 > counter_value && (!(pcf_state & 0x01)))
-	{
-		taste_1 = 1;
-		counter_taste_1 = 0;
-	}
-
-
-	if(counter_taste_2 > counter_value && (!(pcf_state & 0x02)))
-	{
-		taste_2 = 1;
-		counter_taste_2 = 0;
-	}
-
-
-	if(counter_taste_3 > counter_value && (!(pcf_state & 0x04)))
-	{
-		taste_3 = 1;
-		counter_taste_3 = 0;
-	}
-}
-
-//Matrix Schreibfunktion um Daten auf die Matrix zu schreiben
-void matrix_class::write(char byte1, char byte2, char byte3, char byte4, char byte5, char byte6, char byte7, char byte8)
-{
-	//Vom Nutzer stammende Daten Byte für Byte ins Data Array kopieren
-	data[0] = byte1;
-	data[1] = byte2;
-	data[2] = byte3;
-	data[3] = byte4;
-	data[4] = byte5;
-	data[5] = byte6;
-	data[6] = byte7;
-	data[7] = byte8;
-}
-
-//Matrix Schreibfunktion um Daten von einem Array auf die Matrix zu schreiben
-void matrix_class::write_array(char matrix[])
-{
-	//Vom Nutzer stammende Daten Byte für Byte ins Data Array kopieren
-	data[0] = matrix[0];
-	data[1] = matrix[1];
-	data[2] = matrix[2];
-	data[3] = matrix[3];
-	data[4] = matrix[4];
-	data[5] = matrix[5];
-	data[6] = matrix[6];
-	data[7] = matrix[7];
-}
-
-//Matrix Löschfunktion
-void matrix_class::clear(void)
-{
-	//Alle 8 Byte löschen
-	for(int x = 0; x < 8; x++)
-	{
-		data[x] = 0;
-	}
-}
-
-//Matrix Sample/Muster Funktion
-void matrix_class::sample(int number)
-{
-	//Prüfen welches Muster, danach entsprechende Muster in Data Array kopieren
-	switch(number)
-	{
-		case 0:
-			data[0] = 0b10101010;
-			data[1] = 0b01010101;
-			data[2] = 0b10101010;
-			data[3] = 0b01010101;
-			data[4] = 0b10101010;
-			data[5] = 0b01010101;
-			data[6] = 0b10101010;
-			data[7] = 0b01010101;
-			break;
-		case 1:
-			data[0] = ~0b10101010;
-			data[1] = ~0b01010101;
-			data[2] = ~0b10101010;
-			data[3] = ~0b01010101;
-			data[4] = ~0b10101010;
-			data[5] = ~0b01010101;
-			data[6] = ~0b10101010;
-			data[7] = ~0b01010101;
-			break;
-  }
-}
-
-//Matrix Font Funktion
-void matrix_class::font_write(int numb)
-{
-	//Buffer um Font aus Flash in SRAM zwischenzuspeichern
-	char buffer[8];
-
-	matrix_class::write(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
-
-	//Font Daten aus Flash Speicher holen und in Matrix Array schreiben
-	for(int x = 0; x <= 7; x++)
-	{
-		buffer[x] = pgm_read_byte(&font[numb][x]);
-	}
-
-	for(int x = 0; x <= 7; x++)
-	{
-		for(int z = 0; z <= 7; z++)
-		{	
-			if(buffer[x] & (0x01 << z))
-			{
-				data[x] |= (0x80 >> z) << 1;
-			}
-	
-		}
-	}
-}
-
-//PCF Ausgabe Funktion
-void matrix_class::pcf_write(int data)
-{
-	Wire.beginTransmission(PCF_ADRESS);
-
-	Wire.write((~(0x07) & data ));  //Daten schreiben, hinterste 3 Bit ignorieren da daran die Taster sind. Diese Zeile kommentieren falls untere Zeile auskommentiert wird.
-
-	//Wire.write(data);				//Diese Zeile auskommentieren falls auch die 3 "gesperrten" Bits am Ende genutzt werden wollen.
-
-	Wire.endTransmission();
+    SPI.begin();                                                            /* initialize spi bus */
+    SPI.setClockDivider(SPI_CLOCK_DIV128);    /* set spi clock divider to 128, 16Mhz/128 = 125kHz */
+    SPI.setBitOrder(LSBFIRST);                                 /* set bit order to send LSB first */
 
 }
 
-//PCF Eingabe Funktion
-int matrix_class::pcf_read()
-{
-	int pcf_buffer;
 
-	Wire.beginTransmission(PCF_ADRESS);
+/** \brief Internal update routine to update matrix IO
+*/
+int rkag_matrix::read_io() {
+    char pcf_state;                                                 /* port expander state buffer */
 
-	Wire.requestFrom(PCF_ADRESS, 1);
+    microseconds_now = micros();                        /* get current runtime microseconds value */
+    pcf_state = pcf_read();                           /* get current value from pcf port expander */
+    potentiometer_0 = 1023-(analogRead(A0));              /* read potentiometer from analog input */
 
-	while(Wire.available() == 0);
+    button_1 = button_2 = button_3 = 0x00;                           /* reset input button values */
 
-	pcf_buffer = Wire.read();
+    if ((microseconds_now - microseconds_saved) > 5000) {                    /* over 5ms delayed? */
+        if(pcf_state & 0x01) counter_button_1++;                             /* get button inputs */
+        if(pcf_state & 0x02) counter_button_2++;
+        if(pcf_state & 0x04) counter_button_3++;
 
-	return pcf_buffer;
+        microseconds_saved = micros();                         /* save new loop microsecond value */
+    }
+
+
+                                         /* if button counter is higher than the button threshold */
+                                /* and the input is now 0 (released), the button has been pressed */
+    if (counter_button_1 > BTN_THRESHOLD && (!(pcf_state & 0x01))) {
+        counter_button_1 = 0x00;
+        button_1 = 0x01;
+    }
+
+
+    if (counter_button_2 > BTN_THRESHOLD && (!(pcf_state & 0x02))) {
+        counter_button_2 = 0x00;
+        button_2 = 0x01;
+    }
+
+
+    if (counter_button_3 > BTN_THRESHOLD && (!(pcf_state & 0x04))) {
+        counter_button_3 = 0x00;
+        button_3 = 0x01;
+    }
 }
 
-matrix_class matrix;
 
+/** \brief Write a full set of characters to the matrix
+* Each character stands for a line on the matrix display, starting from the top
+*
+* \param byte1 Binary value of line 1 led states
+* \param byte2 Binary value of line 2 led states
+* \param byte3 Binary value of line 3 led states
+* \param byte4 Binary value of line 4 led states
+* \param byte5 Binary value of line 5 led states
+* \param byte6 Binary value of line 6 led states
+* \param byte7 Binary value of line 7 led states
+* \param byte8 Binary value of line 8 led states
+*/
+void rkag_matrix::write (char byte1, char byte2, char byte3, char byte4,
+                          char byte5, char byte6, char byte7, char byte8) {
+    data[0] = byte1;
+    data[1] = byte2;
+    data[2] = byte3;
+    data[3] = byte4;
+    data[4] = byte5;
+    data[5] = byte6;
+    data[6] = byte7;
+    data[7] = byte8;
+}
+
+
+/** \brief Write a character array to the matrix display
+* Equals '::write' but takes a full character array as input
+*
+* \param matrix Array with all line data chars
+*/
+void rkag_matrix::write_array(char matrix[]) {
+    for (int i = 0; i < 8; i++) data[i] = matrix[i];
+}
+
+
+/** \brief Write a character to the matrix display
+*
+* \param character The character to write
+*/
+void rkag_matrix::write_char(char character) {
+    char buffer[8];                                            /* buffer to store fron from flash */
+
+    rkag_matrix::clear();                                                  /* clear matrix screen */
+
+    for(int i = 0; i < 8; i++)                                            /* read font from flash */
+        buffer[i] = pgm_read_byte(&font[character][i]);
+    
+
+    for (int i = 0; i < 8; i++) {                     /* write font from buffer to matrix display */
+        for (int j = 0; j < 8; j++) {    
+            if (buffer[i] & (0x01 << j))
+                data[i] |= (0x80 >> j) << 1;
+        }
+    }
+}
+
+
+/** \brief Clear the matrix by resetting all lines to zero
+*
+*/
+void rkag_matrix::clear(void) {
+    for (int i = 0; i < 8; i++) data[i] = 0x00;
+}
+
+
+/** \brief Write a matrix sample to the screen
+* This will output a simple bit pattern to the screen for testing
+*
+* \param parttern The id of the pattern that should be drawn
+*/
+void rkag_matrix::sample(int pattern) {
+    switch(pattern) {
+        case 0:
+            for (int i = 0; i < 8; i++)
+                data[i] = ((i % 2) == 0) ? 0b10101010 : 0b01010101;
+
+            break;
+        case 1:
+            for (int i = 0; i < 8; i++)
+                data[i] = ((i % 2) == 0) ? 0b01010101 : 0b10101010;
+
+            break;
+        default: {
+            break;
+        }
+    }
+}
+
+
+/** \brief Write data to the i2c bus
+* This will write the given data to the i2c bus
+*
+* \param data The data value
+*/
+void rkag_matrix::pcf_write(int data) {
+    Wire.beginTransmission(PCF_ADRESS);              /* start bus transimission with pcf instance */
+
+    #if ( PCF_MASKBTN == 1 )
+        Wire.write((~(0x07) & data ));        /* write pcf data without the last 3 bits (buttons) */
+    #else
+        Wire.write(data);                                                   /* write all pcf data */
+    #endif
+
+    Wire.endTransmission();                                               /* end bus transmission */
+}
+
+
+/** \brief Read data from the i2c bus
+* This will read the input data from the i2c bus
+*
+* \return int The received data
+*/
+int rkag_matrix::pcf_read() {
+    int pcf_buffer;                                                 /* buffer for pcf input value */
+
+    Wire.beginTransmission(PCF_ADRESS);              /* start bus transimission with pcf instance */
+    Wire.requestFrom(PCF_ADRESS, 1);                     /* request pcf data from correct address */
+
+    while(Wire.available() == 0);                                  /* wait until data is received */
+
+    pcf_buffer = Wire.read();                                        /* read data into the buffer */
+
+    return pcf_buffer;                                                     /* return buffer value */
+}
+
+
+/**
+ * Global instance of the matrix class
+ */
+rkag_matrix matrix;
