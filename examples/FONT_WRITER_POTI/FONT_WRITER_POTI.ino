@@ -1,7 +1,7 @@
 /**
 *   @file   FONT_WRITER_POTI.ino
 *   @author Benjamin Marty (bmarty@kochag.ch)
-*   @date   20.12.2014
+*   @date   11.8.2015
 *   @brief  Main File of FONT_WRITER_POTI Example
 *   @bug    No known bugs.
 *
@@ -14,7 +14,7 @@
 
 void setup()
 {
-	//Initalisierung der Matrix HW Komponenten
+	//Initialize HW
 	matrix.init();
 
 }
@@ -24,7 +24,7 @@ void loop()
 {
 	matrix.read_io();
 
-	matrix.font_write(matrix.potentiometer_0/40+65);
+	matrix.write_char(matrix.potentiometer_0/40+65);
 
 	delay(20);
 }

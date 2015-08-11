@@ -1,7 +1,7 @@
 /**
 *   @file   FONT_WRITER.ino
 *   @author Benjamin Marty (bmarty@kochag.ch)
-*   @date   20.12.2014
+*   @date   11.8.2015
 *   @brief  Main File of FONT_WRITER Example
 *   @bug    No known bugs.
 *
@@ -29,20 +29,20 @@ void loop()
 	
         for(int x = 65; x <= 90; x++)
         {
-            matrix.font_write(x);
+            matrix.write_char(x);
             
             delay(500);
         }
         
-        matrix.font_write(142);
+        matrix.write_char(142);
         
         delay(500);
         
-        matrix.font_write(153);
+        matrix.write_char(153);
         
         delay(500);
         
-        matrix.font_write(154);
+        matrix.write_char(154);
         
         delay(500);
 
