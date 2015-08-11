@@ -1,7 +1,7 @@
 /**
 *   @file   FONT_WRITER_KEY.ino
 *   @author Benjamin Marty (bmarty@kochag.ch)
-*   @date   20.12.2014
+*   @date   11.8.2015
 *   @brief  Main File of FONT_WRITER_KEY Example
 *   @bug    No known bugs.
 *
@@ -28,21 +28,21 @@ void loop()
 	if(matrix.taste_1)
 	{
 		//Ascii Zeichen ausgeben
-		matrix.font_write(49);
+		matrix.write_char(49);
 	}
 	
 	//Prüfen ob Taste 2 gedrückt
 	if(matrix.taste_2)
 	{
 		//Ascii Zeichen ausgeben
-		matrix.font_write(50);
+		matrix.write_char(50);
 	}
 
 	//Prüfen ob Taste 3 gedrückt
 	if(matrix.taste_3)
 	{
 		//Ascii Zeichen ausgeben
-		matrix.font_write(51);
+		matrix.write_char(51);
 	}
 }
 
