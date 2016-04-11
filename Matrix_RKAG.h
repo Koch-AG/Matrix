@@ -3,7 +3,7 @@
 * \brief    RKAG Matrix library source file
 * \author   Benjamin Marty <bmarty@kochag.ch>
 * \author   Sven Gehring <sgehring@kochag.ch>
-* \version  1.2.0
+* \version  1.3.0
 */
 
 
@@ -36,10 +36,20 @@ class rkag_matrix {
 
 	void pcf_write (int data);
 	int pcf_read (void);
-	
+
+    void accelerometer_write(byte addressToWrite, byte dataToWrite);
+	int accelerometer_read_byte(byte addressToRead);
+    void accelerometer_read_multiple(byte addressToRead, int bytesToRead, byte * dest);
+    void accelerometer_standby(void);
+    void accelerometer_active(void);
+    void accelerometer_init(void);
+    void accelerometer_meassure(float *destination);
+
 	int button_1;
 	int button_2;
 	int button_3;
+
+    float accelerometer_x, accelerometer_y, accelerometer_z;
 
 	int potentiometer_0;
 
