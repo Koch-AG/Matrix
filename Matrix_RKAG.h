@@ -30,9 +30,10 @@ class rkag_matrix {
     void clear (void);
     void sample (int pattern);
     void write_char (char character);
-    void write_array (char matrix[]);
-    void write (char byte1, char byte2, char byte3, char byte4,
-                char byte5, char byte6, char byte7, char byte8);
+    void write_array (byte matrix[]);
+    void write (byte byte1, byte byte2, byte byte3, byte byte4,
+                byte byte5, byte byte6, byte byte7, byte byte8);
+    void progressbar(byte value, byte line);
 
 	void pcf_write (int data);
 	int pcf_read (void);
