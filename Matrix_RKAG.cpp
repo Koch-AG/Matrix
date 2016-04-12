@@ -3,7 +3,7 @@
 * \brief    RKAG Matrix library source file
 * \author   Benjamin Marty <bmarty@kochag.ch>
 * \author   Sven Gehring <sgehring@kochag.ch>
-* \version  1.2.0
+* \version  1.3.0
 */
 
 
@@ -17,16 +17,17 @@
 
 #define RCK A3                                                    /* define RCK as Arduino Pin A3 */
 #define SRCLR A2                                                /* define SRCLR as Arduino Pin A2 */
-#define PCF_ADRESS 0x38                                   /* define port expander address as 0x38 */
+
+#define PCF_ADDRESS 0x38                                  /* define port expander address as 0x38 */
+#define ACCELEROMETER_ADRESS 0x1D                         /* define accelerometer address as 0x1D */
+
+#define GSCALE 2           /* Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values */
 #define PCF_MASKBTN 1       /* indicator if button values (b0 - b2 should be masked in pcf write) */
 #define BTN_THRESHOLD 2                    /* button counter threshold for detecting button press */
-
-
+#define ACCELEROMETER_ACTIVE 0x01                /* indicator if the accelerometer should be used */
 
 
 static int data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};      /* matrix spi buffer */
-
-
 
 
 /** \brief Matrix class constructor
@@ -71,7 +72,7 @@ void matrix_timer() {
 * internal SPI connection used to transfer the data.
 */
 void rkag_matrix::init() {
-    Wire.begin();                                                /* initialize i2c bus a smaster  */
+    Wire.begin();                                                /* initialize i2c bus as master  */
 
     Timer1.initialize(800);                    /* initialize timer with 8ms (~15.6Hz update rate) */
     Timer1.attachInterrupt(matrix_timer);         /* bind method 'matrix_timer' to hardware timer */
@@ -80,6 +81,10 @@ void rkag_matrix::init() {
     SPI.setClockDivider(SPI_CLOCK_DIV128);    /* set spi clock divider to 128, 16Mhz/128 = 125kHz */
     SPI.setBitOrder(LSBFIRST);                                 /* set bit order to send LSB first */
 
+    if(ACCELEROMETER_ACTIVE == 0x01)
+    {
+        matrix.accelerometer_init();                     /* initialize accelerometer if activated */
+    }
 }
 
 
@@ -87,6 +92,8 @@ void rkag_matrix::init() {
 */
 int rkag_matrix::read_io() {
     char pcf_state;                                                 /* port expander state buffer */
+    float accelerometer_state[3];                                   /* accelerometer value buffer */ 
+
 
     microseconds_now = micros();                        /* get current runtime microseconds value */
     pcf_state = pcf_read();                           /* get current value from pcf port expander */
@@ -120,6 +127,14 @@ int rkag_matrix::read_io() {
     if (counter_button_3 > BTN_THRESHOLD && (!(pcf_state & 0x04))) {
         counter_button_3 = 0x00;
         button_3 = 0x01;
+    }
+
+    if(ACCELEROMETER_ACTIVE == 0x01)
+    {
+        matrix.accelerometer_meassure(accelerometer_state);     /* read values from accelerometer */
+        accelerometer_x = accelerometer_state[0];               /* store values to public storage */
+        accelerometer_y = accelerometer_state[1];
+        accelerometer_z = accelerometer_state[2];
     }
 }
 
@@ -219,7 +234,7 @@ void rkag_matrix::sample(int pattern) {
 * \param data The data value
 */
 void rkag_matrix::pcf_write(int data) {
-    Wire.beginTransmission(PCF_ADRESS);              /* start bus transimission with pcf instance */
+    Wire.beginTransmission(PCF_ADDRESS);             /* start bus transimission with pcf instance */
 
     #if ( PCF_MASKBTN == 1 )
         Wire.write((~(0x07) & data ));        /* write pcf data without the last 3 bits (buttons) */
@@ -239,14 +254,131 @@ void rkag_matrix::pcf_write(int data) {
 int rkag_matrix::pcf_read() {
     int pcf_buffer;                                                 /* buffer for pcf input value */
 
-    Wire.beginTransmission(PCF_ADRESS);              /* start bus transimission with pcf instance */
-    Wire.requestFrom(PCF_ADRESS, 1);                     /* request pcf data from correct address */
+    Wire.beginTransmission(PCF_ADDRESS);             /* start bus transimission with pcf instance */
+    Wire.requestFrom(PCF_ADDRESS, 1);                    /* request pcf data from correct address */
 
     while(Wire.available() == 0);                                  /* wait until data is received */
 
     pcf_buffer = Wire.read();                                        /* read data into the buffer */
 
     return pcf_buffer;                                                     /* return buffer value */
+}
+
+
+/** \brief Write data to the i2c accelerometer
+* This will write the given data to the i2c bus
+*
+* \param data The data value
+*/
+void rkag_matrix::accelerometer_write(byte addressToWrite, byte dataToWrite) {
+    Wire.beginTransmission(ACCELEROMETER_ADRESS);
+    Wire.write(addressToWrite);
+    Wire.write(dataToWrite);
+    Wire.endTransmission();
+}
+
+
+/** \brief Read data from the i2c accelerometer
+* This will read the input data from the i2c bus
+*
+* \return int The received data
+*/
+int rkag_matrix::accelerometer_read_byte(byte addressToRead) {
+    Wire.beginTransmission(ACCELEROMETER_ADRESS);
+    Wire.write(addressToRead);
+    Wire.endTransmission(false);                 /* endTransmission but keep the connection active */
+
+    Wire.requestFrom(ACCELEROMETER_ADRESS, 1);       /* Ask for 1 byte, once done, bus is released */
+
+    while(!Wire.available()) ;                                   /* Wait for the data to come back */
+    return Wire.read();                                                    /* Return this one byte */
+}
+
+
+/** \brief Read multiple bytes from the i2c accelerometer
+* This will read the input data from the i2c bus
+*
+* \return int The received data
+*/
+void rkag_matrix::accelerometer_read_multiple(byte addressToRead, int bytesToRead, byte * dest)
+{
+    Wire.beginTransmission(ACCELEROMETER_ADRESS);
+    Wire.write(addressToRead);
+    Wire.endTransmission(false);                 /* endTransmission but keep the connection active */
+
+    Wire.requestFrom(ACCELEROMETER_ADRESS, bytesToRead);            /* Ask for n bytes, once done, */
+                                                                               /*  bus is released */
+
+    while(Wire.available() < bytesToRead);       /* Hang out until we get the # of bytes we expect */
+
+    for(int x = 0 ; x < bytesToRead ; x++)
+    dest[x] = Wire.read();
+}
+
+
+/** \brief Set the accelerometer to the standby mode
+*
+*/
+void rkag_matrix::accelerometer_standby(void) {
+    byte c = accelerometer_read_byte(CTRL_REG1);
+    accelerometer_write(CTRL_REG1, c & ~(0x01));         /* Clear the active bit to go into standby */
+}
+
+
+/** \brief Set the accelerometer to the active mode
+*
+*/
+void rkag_matrix::accelerometer_active(void) {
+    byte c = accelerometer_read_byte(CTRL_REG1);
+    accelerometer_write(CTRL_REG1, c | 0x01);              /* Set the active bit to begin detection */
+}
+
+
+/** \brief Initialize accelerometer
+* Test and intialize the MMA8452
+*
+*/
+void rkag_matrix::accelerometer_init(void) {
+    byte c = accelerometer_read_byte(WHO_AM_I);                           /* Read WHO_AM_I register */
+
+    accelerometer_standby();
+
+    // Set up the full scale range to 2, 4, or 8g.
+    byte fsr = GSCALE;
+    if(fsr > 8) fsr = 8; //Easy error check
+    fsr >>= 2; // Neat trick, see page 22. 00 = 2G, 01 = 4A, 10 = 8G
+    accelerometer_write(XYZ_DATA_CFG, fsr);   
+
+    accelerometer_active();
+}
+
+
+/** \brief Start meassurement from accelerometer
+*
+*/
+void rkag_matrix::accelerometer_meassure(float *destination) {
+    byte rawData[6];                                         /* Buffer to operate with X/Y/Z values */
+
+    accelerometer_read_multiple(OUT_X_MSB, 6, rawData);              /* Read the six data registers */
+
+    for(int i = 0; i < 3 ; i++)           /* Loop to calculate 12-bit ADC and g value for each axis */
+    {
+        int gCount = (rawData[i*2] << 8) | rawData[(i*2)+1];          /* Combine to 3x single value */
+        gCount >>= 4;                                           /* righ-align the left-aligned data */
+
+        if (rawData[i*2] > 0x7F)
+        {
+            gCount = ~gCount + 1;
+            gCount *= -1;                                 /* Transform into negative 2's complement */
+        }
+
+        destination[i] = gCount;                       /* Record this gCount into the 3 float array */
+    }
+
+    for (int i = 0 ; i < 3 ; i++)                                      /* Calculate raw Data to G's */
+    {
+        destination[i] = (float) destination[i] / ((1<<12)/(2*GSCALE));
+    } 
 }
 
 
