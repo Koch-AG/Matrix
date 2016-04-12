@@ -72,7 +72,7 @@ void matrix_timer() {
 * internal SPI connection used to transfer the data.
 */
 void rkag_matrix::init() {
-    Wire.begin();                                                /* initialize i2c bus a smaster  */
+    Wire.begin();                                                /* initialize i2c bus as master  */
 
     Timer1.initialize(800);                    /* initialize timer with 8ms (~15.6Hz update rate) */
     Timer1.attachInterrupt(matrix_timer);         /* bind method 'matrix_timer' to hardware timer */
@@ -92,7 +92,7 @@ void rkag_matrix::init() {
 */
 int rkag_matrix::read_io() {
     char pcf_state;                                                 /* port expander state buffer */
-    float accelerometer_state[3];                               /* accelerometer value buffer */ 
+    float accelerometer_state[3];                                   /* accelerometer value buffer */ 
 
 
     microseconds_now = micros();                        /* get current runtime microseconds value */
@@ -135,7 +135,6 @@ int rkag_matrix::read_io() {
         accelerometer_x = accelerometer_state[0];               /* store values to public storage */
         accelerometer_y = accelerometer_state[1];
         accelerometer_z = accelerometer_state[2];
-
     }
 }
 
@@ -295,6 +294,7 @@ int rkag_matrix::accelerometer_read_byte(byte addressToRead) {
     return Wire.read();                                                    /* Return this one byte */
 }
 
+
 /** \brief Read multiple bytes from the i2c accelerometer
 * This will read the input data from the i2c bus
 *
@@ -315,6 +315,7 @@ void rkag_matrix::accelerometer_read_multiple(byte addressToRead, int bytesToRea
     dest[x] = Wire.read();
 }
 
+
 /** \brief Set the accelerometer to the standby mode
 *
 */
@@ -323,6 +324,7 @@ void rkag_matrix::accelerometer_standby(void) {
     accelerometer_write(CTRL_REG1, c & ~(0x01));         /* Clear the active bit to go into standby */
 }
 
+
 /** \brief Set the accelerometer to the active mode
 *
 */
@@ -330,6 +332,7 @@ void rkag_matrix::accelerometer_active(void) {
     byte c = accelerometer_read_byte(CTRL_REG1);
     accelerometer_write(CTRL_REG1, c | 0x01);              /* Set the active bit to begin detection */
 }
+
 
 /** \brief Initialize accelerometer
 * Test and intialize the MMA8452
@@ -348,6 +351,7 @@ void rkag_matrix::accelerometer_init(void) {
 
     accelerometer_active();
 }
+
 
 /** \brief Start meassurement from accelerometer
 *
