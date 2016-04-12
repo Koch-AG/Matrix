@@ -27,7 +27,7 @@
 #define ACCELEROMETER_ACTIVE 0x01                /* indicator if the accelerometer should be used */
 
 
-static int data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};      /* matrix spi buffer */
+static byte data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};      /* matrix spi buffer */
 
 
 /** \brief Matrix class constructor
@@ -151,8 +151,8 @@ int rkag_matrix::read_io() {
 * \param byte7 Binary value of line 7 led states
 * \param byte8 Binary value of line 8 led states
 */
-void rkag_matrix::write (char byte1, char byte2, char byte3, char byte4,
-                          char byte5, char byte6, char byte7, char byte8) {
+void rkag_matrix::write (byte byte1, byte byte2, byte byte3, byte byte4,
+                          byte byte5, byte byte6, byte byte7, byte byte8) {
     data[0] = byte1;
     data[1] = byte2;
     data[2] = byte3;
@@ -169,7 +169,7 @@ void rkag_matrix::write (char byte1, char byte2, char byte3, char byte4,
 *
 * \param matrix Array with all line data chars
 */
-void rkag_matrix::write_array(char matrix[]) {
+void rkag_matrix::write_array(byte matrix[]) {
     for (int i = 0; i < 8; i++) data[i] = matrix[i];
 }
 
@@ -227,6 +227,14 @@ void rkag_matrix::sample(int pattern) {
     }
 }
 
+/** \brief Write a matrix sample to the screen
+* This will output a simple bit pattern to the screen for testing
+*
+* \param parttern The id of the pattern that should be drawn
+*/
+void rkag_matrix::progressbar(byte value, byte line) {
+    data[line] = ((0xFF00 >> value) & 0xFF);
+}
 
 /** \brief Write data to the i2c bus
 * This will write the given data to the i2c bus
