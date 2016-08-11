@@ -29,7 +29,6 @@
 
 static byte data[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};      /* matrix spi buffer */
 
-
 /** \brief Matrix class constructor
 * Construct a new instance of the matrix class, initialize pins RCK, SRCLR & SS
 *
@@ -100,6 +99,7 @@ int rkag_matrix::read_io() {
     potentiometer_0 = 1023-(analogRead(A0));              /* read potentiometer from analog input */
 
     button_1 = button_2 = button_3 = 0x00;                           /* reset input button values */
+    actual_button_1 = actual_button_2 = actual_button_3 = 0x00;
 
     if ((microseconds_now - microseconds_saved) > 5000) {                    /* over 5ms delayed? */
         if(pcf_state & 0x01) counter_button_1++;                             /* get button inputs */
@@ -127,6 +127,18 @@ int rkag_matrix::read_io() {
     if (counter_button_3 > BTN_THRESHOLD && (!(pcf_state & 0x04))) {
         counter_button_3 = 0x00;
         button_3 = 0x01;
+    }
+
+    if (pcf_state & 0x01) {
+        actual_button_1 = 0x01;
+    }
+
+    if (pcf_state & 0x02) {
+        actual_button_2 = 0x01;
+    }
+
+    if (pcf_state & 0x04) {
+        actual_button_3 = 0x01;
     }
 
     if(ACCELEROMETER_ACTIVE == 0x01)
@@ -389,6 +401,62 @@ void rkag_matrix::accelerometer_meassure(float *destination) {
     } 
 }
 
+/** \brief Start meassurement from accelerometer
+*
+*/
+void rkag_matrix::remote_init(void) {
+    Serial.begin(9600);
+}
+
+/** \brief Start meassurement from accelerometer
+*
+*/
+void rkag_matrix::remote_sync(void) {
+    if (Serial.available() > 1) {                                /* Wait until 2 Bytes are received */
+        unsigned char bytes[2];
+        bytes[0] = Serial.read();                                               /* Save the 2 Bytes */
+        bytes[1] = Serial.read();
+        
+        switch(bytes[0]) {
+            case 0x01:
+                data[0] = bytes[1];
+                break;
+            case 0x02:
+                data[1] = bytes[1];
+                break;
+            case 0x03:
+                data[2] = bytes[1];
+                break;
+            case 0x04:
+                data[3] = bytes[1];
+                break;
+            case 0x05:
+                data[4] = bytes[1];
+                break;
+            case 0x06:
+                data[5] = bytes[1];
+                break;
+            case 0x07:
+                data[6] = bytes[1];
+                break;
+            case 0x08:
+                data[7] = bytes[1];
+                break;
+            case 0x89:  /* Read Buttons */
+                Serial.write(0x89);
+                Serial.write( actual_button_1 | (actual_button_2 << 1) | (actual_button_3 << 2));
+                break;
+            case 0x8A:  /* Read Potentiometer */
+                Serial.write(0x8A);
+                Serial.write( (unsigned char)(potentiometer_0 >> 2) );
+                break;
+        }
+    }
+    else
+    {
+        if(Serial.available() > 2)  Serial.flush();
+    }
+}
 
 /**
  * Global instance of the matrix class

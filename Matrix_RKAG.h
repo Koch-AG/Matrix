@@ -46,9 +46,11 @@ class rkag_matrix {
     void accelerometer_init(void);
     void accelerometer_meassure(float *destination);
 
-	int button_1;
-	int button_2;
-	int button_3;
+    void remote_init(void);
+    void remote_sync(void);
+
+	int button_1, button_2, button_3;
+	int actual_button_1, actual_button_2, actual_button_3;
 
     float accelerometer_x, accelerometer_y, accelerometer_z;
 
