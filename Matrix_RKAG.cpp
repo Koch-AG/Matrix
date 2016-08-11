@@ -462,6 +462,24 @@ void rkag_matrix::remote_sync(void) {
                 Serial.write(0x8D);
                 Serial.write( (unsigned char)((accelerometer_z + 1) * 128 ));
                 break;
+            case 0x09:  /* Write gpio direction */
+                if(bytes[1] & 0x01) pinMode(3, OUTPUT);   else    pinMode(3, INPUT);
+                if(bytes[1] & 0x02) pinMode(4, OUTPUT);   else    pinMode(4, INPUT);
+                if(bytes[1] & 0x04) pinMode(5, OUTPUT);   else    pinMode(5, INPUT);
+                if(bytes[1] & 0x08) pinMode(6, OUTPUT);   else    pinMode(6, INPUT);
+                if(bytes[1] & 0x10) pinMode(7, OUTPUT);   else    pinMode(7, INPUT);
+                if(bytes[1] & 0x20) pinMode(8, OUTPUT);   else    pinMode(8, INPUT);
+                if(bytes[1] & 0x40) pinMode(9, OUTPUT);   else    pinMode(9, INPUT);
+                break;
+            case 0x0A:  /* Write gpio state */
+                if(bytes[1] & 0x01) digitalWrite(3, 1);   else    digitalWrite(3, 0);
+                if(bytes[1] & 0x02) digitalWrite(4, 1);   else    digitalWrite(4, 0);
+                if(bytes[1] & 0x04) digitalWrite(5, 1);   else    digitalWrite(5, 0);
+                if(bytes[1] & 0x08) digitalWrite(6, 1);   else    digitalWrite(6, 0);
+                if(bytes[1] & 0x10) digitalWrite(7, 1);   else    digitalWrite(7, 0);
+                if(bytes[1] & 0x20) digitalWrite(8, 1);   else    digitalWrite(8, 0);
+                if(bytes[1] & 0x40) digitalWrite(9, 1);   else    digitalWrite(9, 0);
+                break;
         }
     }
     else
