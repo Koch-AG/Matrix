@@ -450,6 +450,18 @@ void rkag_matrix::remote_sync(void) {
                 Serial.write(0x8A);
                 Serial.write( (unsigned char)(potentiometer_0 >> 2) );
                 break;
+            case 0x8B:  /* Read Accelerometer X */
+                Serial.write(0x8B);
+                Serial.write( (unsigned char)((accelerometer_x + 1) * 128 ));
+                break;
+            case 0x8C:  /* Read Accelerometer Y */
+                Serial.write(0x8C);
+                Serial.write( (unsigned char)((accelerometer_y + 1) * 128 ));
+                break;
+            case 0x8D:  /* Read Accelerometer Z */
+                Serial.write(0x8D);
+                Serial.write( (unsigned char)((accelerometer_z + 1) * 128 ));
+                break;
         }
     }
     else
