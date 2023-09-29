@@ -1,3 +1,9 @@
+### V1.3.1 (29.09.2023), Martin Burger
+- Create new Release with all changes until now. Especially change from char to byte in font.h
+
+### V1.3.0 (?)
+- ?
+
 ### V1.2.0 (28.07.2015, Sven Gehring)
 - Code neu formatiert, fehlerhafte Indents behoben
 - Kommentare übersetzt, ergänzt und Funktionsheader hinzugefügt

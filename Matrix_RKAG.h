@@ -3,7 +3,8 @@
 * \brief    RKAG Matrix library source file
 * \author   Benjamin Marty <bmarty@kochag.ch>
 * \author   Sven Gehring <sgehring@kochag.ch>
-* \version  1.3.0
+* \author   Martin Burger <mburger@kochag.ch>
+* \version  1.3.1
 */
 
 
